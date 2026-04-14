@@ -37,6 +37,15 @@
             & + .profile-page__content {
                 grid-column: span 3;
             }
+
+            .prompt {
+                &__form {
+                    flex-direction: column;
+                    textarea {
+                        min-height: 200px;
+                    }
+                }
+            }
             
         }
     }

@@ -94,8 +94,8 @@ function VideoFeed({username = null}) {
         </div>
 
         <div ref={loaderRef} className="video-feed__loader">
-          {isLoading && <p>Loading more videos...</p>}
-          {!hasMore && videos.length > 0 && <p>End of the feed.</p>}
+          {isLoading && <p className="feed-state-info">Loading more videos...</p>}
+          {!hasMore && videos.length > 0 && <p className="feed-state-info">End of the feed.</p>}
         </div>
       </div>
     </div>

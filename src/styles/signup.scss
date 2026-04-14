@@ -1,0 +1,58 @@
+.signup {
+    display: grid;
+    grid-template-columns: repeat(1,1fr);
+    gap: 30px;
+    margin: 0 auto;
+    padding: 0 30px;
+    max-width: 900px;
+    &__content,
+    &__form {
+        width: 100%;
+        grid-column: span 1;
+    }
+    @media(min-width: 768px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .password-strength {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 5px;
+        width: 100%;
+        &__pip {
+            display: block;
+            background-color: var(--gray-color);
+            border-radius: 30px;
+            height: 5px;
+
+        }
+
+        &__1 {
+            .password-strength__pip:nth-child(-n+1) {
+                background-color: green;
+            }
+        }
+
+        &__2 {
+            .password-strength__pip:nth-child(-n+2) {
+                background-color: green;
+            }
+        }
+
+        &__3 {
+            .password-strength__pip:nth-child(-n+3) {
+                background-color: green;
+            }
+        }
+
+        &__4 {
+            .password-strength__pip:nth-child(-n+4) {
+                background-color: green;
+            }
+        }
+    }
+
+    .password-strength-section {
+        margin-top: 10px;
+    }
+}

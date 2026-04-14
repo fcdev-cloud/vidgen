@@ -1,0 +1,60 @@
+.video-feed {
+    width: 100%;
+    &__container {
+        width: 100%;
+        container-type: inline-size;
+    }
+
+    &__page {
+        display: grid;
+        grid-template-columns: repeat(1, 1fr);
+        gap: 30px;
+        @container (width > 400px) {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        @container (width > 768px) {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+    .video-card {
+        cursor: pointer;
+        transition: all .3s ease;
+        transform: scale(1);
+        background-color: transparent;
+        position: relative;
+
+        .delete-video-button {
+            width: 30px;
+            height: 30px;
+            right: 0;
+            top: 0;
+            z-index: 10;
+            position: absolute;
+            button {
+                width: 100%;
+                height: 100%;
+                padding: 0;
+                text-align: center;
+                justify-content: center;
+                display: flex;
+                line-height: 27px;
+                border-radius: 0;
+                font-size: 14px;
+                scale: 1;
+            }
+            
+        }
+        &:hover {
+            transform: scale(1.02);
+            .delete-video-button {
+                transform: scale(1.02);
+            }
+        }
+
+        a {
+            z-index: 1;
+        }
+    }
+    
+}

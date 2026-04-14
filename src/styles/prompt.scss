@@ -1,0 +1,32 @@
+.prompt {
+    width: 100%;
+    
+    &__form {
+        width: 100%;
+        display: flex;
+        gap: 10px;
+    }
+    &__textarea {
+        flex: 1 1 100%;
+        border-radius: 10px;
+        border: none;
+        min-height: 50px;
+        resize: none;
+        padding: 10px;
+        background-color: var(--tertiary-color);
+        color: #fff;
+        &::placeholder {
+            color: #fff;
+        }
+    }
+    &__submit {
+        height: 50px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        span {
+            align-self: center;
+        }
+    }
+
+}

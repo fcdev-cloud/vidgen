@@ -1,0 +1,11 @@
+.video-meta {
+    color: #fff;
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    &__prompt {
+        font-style: italic;
+        font-size: 14px;
+    }
+}

@@ -1,14 +1,36 @@
 import mysql from 'mysql2/promise';
 
-// Create a connection pool so you don't exhaust MySQL connections
-const pool = mysql.createPool({
-  host: process.env.MYSQL_HOST || 'localhost',
-  user: process.env.MYSQL_USER || 'root',
-  password: process.env.MYSQL_PASSWORD || '',
-  database: process.env.MYSQL_DATABASE || 'vidgen',
+/**
+ * Universal Database Connection Pool
+ * Works for Local XAMPP (MySQL/MariaDB) and TiDB Cloud (Vercel)
+ */
+
+let pool;
+
+// Configuration object
+const dbConfig = {
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT),
+  user: process.env.DB_USER || process.env.DB_USERNAME, // Handles both naming conventions
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME || process.env.DB_DATABASE,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-});
+};
+
+// Only apply SSL if NOT on localhost
+if (process.env.DB_HOST !== 'localhost' && process.env.DB_HOST !== '127.0.0.1') {
+  dbConfig.ssl = {
+    minVersion: 'TLSv1.2',
+    rejectUnauthorized: true,
+  };
+}
+
+if (!global.pool) {
+  global.pool = mysql.createPool(dbConfig);
+}
+
+pool = global.pool;
 
 export default pool;

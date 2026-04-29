@@ -27,6 +27,7 @@ if (process.env.DB_SSL_REJECT !== 'false') {
   dbConfig.ssl = {
     minVersion: 'TLSv1.2',
     rejectUnauthorized: true,
+    ca: process.env.DB_SSL_CA ? Buffer.from(process.env.DB_SSL_CA, 'base64').toString('utf-8') : undefined,
   };
 }
 

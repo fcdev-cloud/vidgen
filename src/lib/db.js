@@ -17,10 +17,13 @@ const dbConfig = {
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  ssl: {
+    rejectUnauthorized: false
+  }
 };
 
 // Only apply SSL if NOT on localhost
-if (process.env.DB_HOST !== 'localhost' && process.env.DB_HOST !== '127.0.0.1') {
+if (process.env.DB_SSL_REJECT !== 'false') {
   dbConfig.ssl = {
     minVersion: 'TLSv1.2',
     rejectUnauthorized: true,

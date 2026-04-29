@@ -1,12 +1,14 @@
 "use server";
 import pool from '@/lib/db';
 import { fal } from "@fal-ai/client";
-import path from 'path';
-import fs from 'fs/promises';
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from '@/lib/auth';
 import { redirect } from "next/navigation";
+import { r2 } from '@/lib/s3';
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+
 
 // Link to to proxy route
 fal.config({
@@ -48,21 +50,29 @@ export async function createVideoAction(prevState, formData) {
         });
 
         // 3. File Setup
-        console.log(result_ai);
         const videoUrl = result_ai.data.video.url;
-        const fileName = `${newVideoId}.mp4`;
-        const absolutePath = path.join(process.cwd(), 'public', 'videos', fileName);
-        const relativePath = `/videos/${fileName}`;
+        const fileName = `videos/${newVideoId}.mp4`;
+        const relativePath = `/${fileName}`;
 
-        // Create directory if it doesn't exist
-        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
 
         // 4. Download Video
         const response = await fetch(videoUrl);
         const buffer = Buffer.from(await response.arrayBuffer());
-        await fs.writeFile(absolutePath, buffer);
 
-        // 5. Final DB Update
+
+        // 5. Upload it to R2 and capture response
+        const uploadResponse = await r2.send(new PutObjectCommand({
+            Bucket: process.env.R2_BUCKET_NAME,
+            Key: fileName,
+            Body: buffer,
+            ContentType: "video/mp4",
+        }));
+
+        // Throw error and let the catch block handle cleanup if upload fails
+        if (uploadResponse.$metadata.httpStatusCode !== 200) {
+            throw new Error(`${uploadResponse.$metadata.httpStatusCode}`);
+        }
+        // 6. Final DB Update
         await pool.execute(
             'UPDATE videos SET file_path = ?, status = ? WHERE id = ?',
             [relativePath, 'completed', newVideoId]
@@ -73,7 +83,7 @@ export async function createVideoAction(prevState, formData) {
         return { success: true };
 
     } catch (error) {
-        console.error("fal.ai Error:", error);
+        console.error("Error:", error);
         
         // Auto-cleanup: remove row if generation failed
         if (newVideoId) {
@@ -102,9 +112,18 @@ export async function readVideoAction(videoId) {
              LIMIT 1`,
             [videoId]
         );
+        
 
         if (rows.length === 0) {
             return { success: false, error: "Video not found." };
+        }
+
+         if(process.env.R2_PUBLIC_SUBDOMAIN) {
+            rows.forEach(row => {
+                if (row.file_path) {
+                    row.file_path = `${process.env.R2_PUBLIC_SUBDOMAIN}${row.file_path}`;
+                }
+            });
         }
 
         return { success: true, data: rows[0] };
@@ -125,7 +144,7 @@ export async function readVideosAction(page = 1, limit = 8, username = null) {
 
         if (username) {
             // Query for a specific user's videos + their info
-            [rows] = await pool.execute(
+            [rows] = await pool.query(
                 `SELECT v.*, u.username, u.ID AS owner_id 
                 FROM videos v 
                 JOIN users u ON v.user_id = u.ID 
@@ -136,7 +155,7 @@ export async function readVideosAction(page = 1, limit = 8, username = null) {
             );
         } else {
             // Query for ALL videos + their respective owners' info
-            [rows] = await pool.execute(
+            [rows] = await pool.query(
                 `SELECT v.*, u.username, u.ID AS owner_id 
                 FROM videos v
                 JOIN users u ON v.user_id = u.ID
@@ -150,6 +169,14 @@ export async function readVideosAction(page = 1, limit = 8, username = null) {
             return { success: false, error: "No more videos found.", data: [] };
         }
 
+        if(process.env.R2_PUBLIC_SUBDOMAIN) {
+            rows.forEach(row => {
+                if (row.file_path) {
+                    row.file_path = `${process.env.R2_PUBLIC_SUBDOMAIN}${row.file_path}`;
+                }
+            });
+        }
+
         return { success: true, data: rows };
 
     } catch (error) {
@@ -160,7 +187,7 @@ export async function readVideosAction(page = 1, limit = 8, username = null) {
 
 export async function deleteVideoAction(prevState, formData) {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session?.user) {
         redirect(`/login`);
     }
 
@@ -169,31 +196,40 @@ export async function deleteVideoAction(prevState, formData) {
         const videoId = formData.get('vID');
 
         if (!videoId) {
-            return { success: false, error: 'No Video ID found' };
+        return { success: false, error: 'No Video ID found' };
         }
 
-        // Execute DELETE with ownership check
-        const [videoData] = await pool.execute('SELECT file_path FROM videos WHERE ID=? AND user_id=?', [videoId, userId]);
+        // 1. Get the file path before deleting the row
+        const [videoData] = await pool.execute(
+        'SELECT file_path FROM videos WHERE ID=? AND user_id=?', 
+        [videoId, userId]
+        );
 
         if (videoData.length > 0) {
-            const cleanPath = videoData[0].file_path.replace(/^\//, ''); // Removes leading slash if it exists
-            const absolutePath = path.join(process.cwd(), 'public', cleanPath);
-            
-            // Delete the row
-            await pool.execute('DELETE FROM videos WHERE ID=? AND user_id=?', [videoId, userId]);
+        const fullPath = videoData[0].file_path;
 
-            // Delete the physical file
-            try {
-                await fs.unlink(absolutePath);
-            } catch (err) {
-                console.error("File deletion failed, but DB row is gone:", err);
-            }
+        // 2. Extract the R2 Key
+        // If path is "/videos/12.mp4", we need "videos/12.mp4"
+        const r2Key = fullPath.replace(`${process.env.R2_PUBLIC_DOMAIN}/`, "").replace(/^\//, "");
+
+        // 3. Delete from Cloudflare R2
+        try {
+            await r2.send(new DeleteObjectCommand({
+            Bucket: process.env.R2_BUCKET_NAME,
+            Key: r2Key,
+            }));
+            console.log(`Deleted from R2: ${r2Key}`);
+        } catch (err) {
+            // log this but continue so the DB doesn't stay out of sync
+            console.error("R2 deletion failed:", err);
         }
 
-        // Revalidate so the video disappears from the UI immediately
+        // 4. Delete the row from Database
+        await pool.execute('DELETE FROM videos WHERE ID=? AND user_id=?', [videoId, userId]);
+        }
+
         revalidatePath('/');
         revalidatePath(`/profile/${session.user.name}`);
-
         return { success: true, message: `Video successfully deleted.` };
 
     } catch (error) {

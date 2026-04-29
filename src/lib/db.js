@@ -1,40 +1,16 @@
-import mysql from 'mysql2/promise';
+const caContent = process.env.DB_SSL_CA 
+  ? Buffer.from(process.env.DB_SSL_CA, 'base64').toString('utf-8') 
+  : undefined;
 
-/**
- * Universal Database Connection Pool
- * Works for Local XAMPP (MySQL/MariaDB) and TiDB Cloud (Vercel)
- */
 
-let pool;
-
-// Configuration object
-const dbConfig = {
+const pool = mysql.createPool({
   host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT),
-  user: process.env.DB_USER || process.env.DB_USERNAME, // Handles both naming conventions
+  user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME || process.env.DB_DATABASE,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+  database: process.env.DB_NAME,
   ssl: {
-    rejectUnauthorized: false
+    rejectUnauthorized: true, 
+    ca: caContent,           // The decoded "Master Seal"
+    checkServerIdentity: () => undefined // This skips hostname mismatch but keeps the cert check
   }
-};
-
-// Only apply SSL if NOT on localhost
-if (process.env.DB_SSL_REJECT !== 'false') {
-  dbConfig.ssl = {
-    minVersion: 'TLSv1.2',
-    rejectUnauthorized: true,
-    ca: process.env.DB_SSL_CA ? Buffer.from(process.env.DB_SSL_CA, 'base64').toString('utf-8') : undefined,
-  };
-}
-
-if (!global.pool) {
-  global.pool = mysql.createPool(dbConfig);
-}
-
-pool = global.pool;
-
-export default pool;
+});

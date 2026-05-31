@@ -20,6 +20,8 @@ function Video({ src, controls= true, isActive, onPlay }) {
                 controls={controls}
                 ref={videoRef}
                 onPlay={onPlay}
+                playsInline
+                preload="auto"
                 >
                     <source src={src} type="video/mp4" />
                     Your browser does not support the video tag.

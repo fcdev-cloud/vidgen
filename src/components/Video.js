@@ -20,6 +20,9 @@ function Video({ src, controls= true, isActive, onPlay }) {
                 controls={controls}
                 ref={videoRef}
                 onPlay={onPlay}
+                autoPlay 
+                loop 
+                muted 
                 playsInline
                 preload="auto"
                 >
